@@ -323,17 +323,16 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
         else:
             num_iterations = 0  # keep track of the number of iterations
             shots = self._quantum_instance._run_config.shots  # number of shots per iteration            
+            original_shots = shots # for min(1, (prev_k/k)
+            nshots = shots # for prev_k/k
+            prev_k = None
+            
+            repeats_threshold = 5
+            repeats_count = 0
 
             # do while loop, keep in mind that we scaled theta mod 2pi such that it lies in [0,1]
             while theta_intervals[-1][1] - theta_intervals[-1][0] > self._epsilon / np.pi:
                 num_iterations += 1
-                
-                #########
-                # modify the number of shots done per iteration
-                # currently halve num shots each time
-                shots /= (2**num_iterations-1)
-
-                #########
                 
                 # get the next k
                 k, upper_half_circle = self._find_next_k(
@@ -343,10 +342,27 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                     min_ratio=self._min_ratio,
                 )
 
+                ##### 
+                # modify number of shots for deeper circuits
+                print(k, prev_k)
+                print(f'prev_k/k = {prev_k/k if k and prev_k else 1}')
+                nshots = round(nshots * (prev_k/k if k and prev_k else 1))
+                
+                # force terminate the algorithm if k doesn't update
+#                 if k == prev_k:
+#                     repeats_count += 1
+#                     if repeats_count == repeats_threshold: break
+#                 else:
+#                     repeats_count = 0
+                
+                print('nshots:',nshots)
+                self._quantum_instance._run_config.shots = nshots
+                #####
+                
                 # store the variables
                 powers.append(k)
                 ratios.append((2 * powers[-1] + 1) / (2 * powers[-2] + 1))
-
+                
                 # run measurements for Q^k A|0> circuit
                 circuit = self.construct_circuit(estimation_problem, k, measurement=True)
                 ret = self._quantum_instance.execute(circuit)
@@ -364,11 +380,11 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 num_one_shots.append(one_counts)
 
                 # track number of Q-oracle calls
-                num_oracle_queries += shots * k
+                num_oracle_queries += nshots * k
 
                 # if on the previous iterations we have K_{i-1} == K_i, we sum these samples up
                 j = 1  # number of times we stayed fixed at the same K
-                round_shots = shots
+                round_shots = nshots
                 round_one_counts = one_counts
                 if num_iterations > 1:
                     while (
@@ -376,9 +392,9 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                         and num_iterations >= j + 1
                     ):
                         j = j + 1
-                        round_shots += shots
+                        round_shots += nshots
                         round_one_counts += num_one_shots[-j]
-
+                
                 # compute a_min_i, a_max_i
                 if self._confint_method == "chernoff":
                     a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, self._alpha)
@@ -394,11 +410,12 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 else:
                     theta_min_i = 1 - np.arccos(1 - 2 * a_i_max) / 2 / np.pi
                     theta_max_i = 1 - np.arccos(1 - 2 * a_i_min) / 2 / np.pi
-
+                
                 # compute theta_u, theta_l of this iteration
                 scaling = 4 * k + 2  # current K_i factor
                 theta_u = (int(scaling * theta_intervals[-1][1]) + theta_max_i) / scaling
                 theta_l = (int(scaling * theta_intervals[-1][0]) + theta_min_i) / scaling
+                
                 theta_intervals.append([theta_l, theta_u])
 
                 # compute a_u_i, a_l_i
@@ -407,6 +424,10 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 a_u = cast(float, a_u)
                 a_l = cast(float, a_l)
                 a_intervals.append([a_l, a_u])
+                
+                prev_k = k
+                
+                
 
         # get the latest confidence interval for the estimate of a
         confidence_interval = tuple(a_intervals[-1])
@@ -564,6 +585,7 @@ def _chernoff_confint(
         The Chernoff confidence interval.
     """
     eps = np.sqrt(3 * np.log(2 * max_rounds / alpha) / shots)
+#     print(2*max_rounds / alpha)
     lower = np.maximum(0, value - eps)
     upper = np.minimum(1, value + eps)
     return lower, upper
