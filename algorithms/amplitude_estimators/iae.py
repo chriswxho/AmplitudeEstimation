@@ -322,12 +322,19 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 
         else:
             num_iterations = 0  # keep track of the number of iterations
-            shots = self._quantum_instance._run_config.shots  # number of shots per iteration
+            shots = self._quantum_instance._run_config.shots  # number of shots per iteration            
 
             # do while loop, keep in mind that we scaled theta mod 2pi such that it lies in [0,1]
             while theta_intervals[-1][1] - theta_intervals[-1][0] > self._epsilon / np.pi:
                 num_iterations += 1
+                
+                #########
+                # modify the number of shots done per iteration
+                # currently halve num shots each time
+                shots /= (2**num_iterations-1)
 
+                #########
+                
                 # get the next k
                 k, upper_half_circle = self._find_next_k(
                     powers[-1],
