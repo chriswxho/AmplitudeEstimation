@@ -330,9 +330,16 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
             repeats_threshold = 5
             repeats_count = 0
 
+#             alpha = 0.5 * 0.1 ** np.arange(1,11)[::-1]
+            alpha = 0.000905 * np.arange(1,11)
+            print(np.sum(alpha))
+
             # do while loop, keep in mind that we scaled theta mod 2pi such that it lies in [0,1]
             while theta_intervals[-1][1] - theta_intervals[-1][0] > self._epsilon / np.pi:
                 num_iterations += 1
+                
+                if num_iterations > 100:
+                    break
                 
                 # get the next k
                 k, upper_half_circle = self._find_next_k(
@@ -344,18 +351,24 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 
                 ##### 
                 # modify number of shots for deeper circuits
-                print(k, prev_k)
-                print(f'prev_k/k = {prev_k/k if k and prev_k else 1}')
-                nshots = round(nshots * (prev_k/k if k and prev_k else 1))
+#                 print(k, prev_k)
+#                 print(f'prev_k/k = {prev_k/k if k and prev_k else 1}')
+                if nshots <= 1: break
+                if num_iterations < 10:
+                    nshots = round(np.log(2/alpha[num_iterations]) / (2 * self._epsilon) * np.exp(-(num_iterations)))
+                else:
+                    nshots = 1
+                    
+#                 round(nshots * (prev_k/k if k and prev_k else 1))
                 
-                # force terminate the algorithm if k doesn't update
+#                 force terminate the algorithm if k doesn't update
 #                 if k == prev_k:
 #                     repeats_count += 1
 #                     if repeats_count == repeats_threshold: break
 #                 else:
 #                     repeats_count = 0
                 
-                print('nshots:',nshots)
+#                 print('nshots:',nshots)
                 self._quantum_instance._run_config.shots = nshots
                 #####
                 
@@ -380,6 +393,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 num_one_shots.append(one_counts)
 
                 # track number of Q-oracle calls
+                print(num_iterations, nshots, k)
                 num_oracle_queries += nshots * k
 
                 # if on the previous iterations we have K_{i-1} == K_i, we sum these samples up
@@ -395,7 +409,10 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                         round_shots += nshots
                         round_one_counts += num_one_shots[-j]
                 
+#                 print(Ni)
+                
                 # compute a_min_i, a_max_i
+                self._alpha = .05 if num_iterations >= 9 else alpha[num_iterations]
                 if self._confint_method == "chernoff":
                     a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, self._alpha)
                 else:  # 'beta'
@@ -584,8 +601,9 @@ def _chernoff_confint(
     Returns:
         The Chernoff confidence interval.
     """
-    eps = np.sqrt(3 * np.log(2 * max_rounds / alpha) / shots)
-#     print(2*max_rounds / alpha)
+    
+#     eps = np.sqrt(3 * np.log(2 * max_rounds / alpha) / shots)
+    eps = np.sqrt( 1/shots * np.log(2/alpha))
     lower = np.maximum(0, value - eps)
     upper = np.minimum(1, value + eps)
     return lower, upper
