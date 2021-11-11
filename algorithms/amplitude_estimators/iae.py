@@ -292,8 +292,10 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 
         # maximum number of rounds
         max_rounds = (
-            int(np.log(self._min_ratio * np.pi / 8 / self._epsilon) / np.log(self._min_ratio)) + 1
+            int(np.log(self._min_ratio * np.pi / 8 / self._epsilon ** 2) / np.log(self._min_ratio)) + 1
         )
+        
+        print('max_rounds', max_rounds)
         upper_half_circle = True  # initially theta is in the upper half-circle
 
         # for statevector we can directly return the probability to measure 1
@@ -322,17 +324,19 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 
         else:
             num_iterations = 0  # keep track of the number of iterations
-            shots = self._quantum_instance._run_config.shots  # number of shots per iteration            
-            original_shots = shots # for min(1, (prev_k/k)
-            nshots = shots # for prev_k/k
-            prev_k = None
+            nshots = self._quantum_instance._run_config.shots  # number of shots per iteration            
+
+#             original_shots = shots # for min(1, (prev_k/k)
+#             nshots = shots # for prev_k/k
+#             prev_k = None
             
-            repeats_threshold = 5
-            repeats_count = 0
+#             repeats_threshold = 5
+#             repeats_count = 0
 
 #             alpha = 0.5 * 0.1 ** np.arange(1,11)[::-1]
-            alpha = 0.000905 * np.arange(1,11)
-            print(np.sum(alpha))
+#             alpha = 0.000905 * np.arange(1,11)[::-1]
+#             print(alpha)
+#             print(np.sum(alpha))
 
             # do while loop, keep in mind that we scaled theta mod 2pi such that it lies in [0,1]
             while theta_intervals[-1][1] - theta_intervals[-1][0] > self._epsilon / np.pi:
@@ -353,11 +357,11 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 # modify number of shots for deeper circuits
 #                 print(k, prev_k)
 #                 print(f'prev_k/k = {prev_k/k if k and prev_k else 1}')
-                if nshots <= 1: break
-                if num_iterations < 10:
-                    nshots = round(np.log(2/alpha[num_iterations]) / (2 * self._epsilon) * np.exp(-(num_iterations)))
-                else:
-                    nshots = 1
+#                 if nshots <= 1: break
+#                 if num_iterations < 10:
+#                     nshots = round(np.log(2/alpha[num_iterations]) / (2 * self._epsilon) * np.exp(-(num_iterations)))
+#                 else:
+#                     nshots = 1
                     
 #                 round(nshots * (prev_k/k if k and prev_k else 1))
                 
@@ -369,7 +373,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 #                     repeats_count = 0
                 
 #                 print('nshots:',nshots)
-                self._quantum_instance._run_config.shots = nshots
+#                 self._quantum_instance._run_config.shots = nshots
                 #####
                 
                 # store the variables
@@ -408,11 +412,12 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                         j = j + 1
                         round_shots += nshots
                         round_one_counts += num_one_shots[-j]
-                
+                        # flag this part
+#                         print('num shots increased')
 #                 print(Ni)
                 
                 # compute a_min_i, a_max_i
-                self._alpha = .05 if num_iterations >= 9 else alpha[num_iterations]
+#                 self._alpha = .05 if num_iterations >= 9 else alpha[num_iterations]
                 if self._confint_method == "chernoff":
                     a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, self._alpha)
                 else:  # 'beta'
@@ -442,7 +447,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 a_l = cast(float, a_l)
                 a_intervals.append([a_l, a_u])
                 
-                prev_k = k
+#                 prev_k = k
                 
                 
 
