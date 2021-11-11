@@ -292,7 +292,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 
         # maximum number of rounds
         max_rounds = (
-            int(np.log(self._min_ratio * np.pi / 8 / self._epsilon ** 2) / np.log(self._min_ratio)) + 1
+            int(np.log(self._min_ratio * np.pi / 8 / self._epsilon) / np.log(self._min_ratio)) + 1
         )
         
         print('max_rounds', max_rounds)
@@ -342,8 +342,8 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
             while theta_intervals[-1][1] - theta_intervals[-1][0] > self._epsilon / np.pi:
                 num_iterations += 1
                 
-                if num_iterations > 100:
-                    break
+#                 if num_iterations > 100:
+#                     break
                 
                 # get the next k
                 k, upper_half_circle = self._find_next_k(
@@ -608,7 +608,7 @@ def _chernoff_confint(
     """
     
 #     eps = np.sqrt(3 * np.log(2 * max_rounds / alpha) / shots)
-    eps = np.sqrt( 1/shots * np.log(2/alpha))
+    eps = np.sqrt(0.5/shots * np.log(2/alpha))
     lower = np.maximum(0, value - eps)
     upper = np.minimum(1, value + eps)
     return lower, upper
