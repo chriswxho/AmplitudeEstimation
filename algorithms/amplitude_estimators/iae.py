@@ -295,6 +295,8 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
             int(np.log(self._min_ratio * np.pi / 8 / self._epsilon) / np.log(self._min_ratio)) + 1
         )
         upper_half_circle = True  # initially theta is in the upper half-circle
+        print('T:', max_rounds)
+        print()
 
         # for statevector we can directly return the probability to measure 1
         # note, that no iterations here are necessary
@@ -327,8 +329,12 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 #             nshots = shots # for prev_k/k
 #             prev_k = None
             
-            repeats_threshold = 5
-            repeats_count = 0
+#             repeats_threshold = 5
+#             repeats_count = 0
+            
+            s = 5e-4
+            
+            alpha_0 = self._alpha / max_rounds + (s * (max_rounds - 1) * max_rounds / 2)
 
 #             alpha = 0.5 * 0.1 ** np.arange(1,11)[::-1]
 #             alpha = 0.000905 * np.arange(1,11)
@@ -337,9 +343,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
             # do while loop, keep in mind that we scaled theta mod 2pi such that it lies in [0,1]
             while theta_intervals[-1][1] - theta_intervals[-1][0] > self._epsilon / np.pi:
                 num_iterations += 1
-                
-#                 if num_iterations > 100:
-#                     break
+                print('Iteration', num_iterations)
                 
                 # get the next k
                 k, upper_half_circle = self._find_next_k(
@@ -351,25 +355,13 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 
                 ##### 
                 # modify number of shots for deeper circuits
-#                 print(k, prev_k)
-#                 print(f'prev_k/k = {prev_k/k if k and prev_k else 1}')
-#                 if nshots <= 1: break
-#                 if num_iterations < 10:
-#                     nshots = round(np.log(2/alpha[num_iterations]) / (2 * self._epsilon) * np.exp(-(num_iterations)))
-#                 else:
-#                     nshots = 1
-                    
-#                 round(nshots * (prev_k/k if k and prev_k else 1))
+                alpha_i = alpha_0 + s * (num_iterations - 1)
+                print('  α_i:', alpha_i)
+                print('  Nshots_i:', shots)
+                print('  k_i:', k)
+                shots = int(np.log(2/alpha_i) / (2 * self._epsilon ** 2))
                 
-#                 force terminate the algorithm if k doesn't update
-#                 if k == prev_k:
-#                     repeats_count += 1
-#                     if repeats_count == repeats_threshold: break
-#                 else:
-#                     repeats_count = 0
-                
-#                 print('nshots:',nshots)
-#                 self._quantum_instance._run_config.shots = nshots
+                self._quantum_instance._run_config.shots = shots
                 #####
                 
                 # store the variables
@@ -393,7 +385,6 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 num_one_shots.append(one_counts)
 
                 # track number of Q-oracle calls
-                print(num_iterations, shots, k)
                 num_oracle_queries += shots * k
 
                 # if on the previous iterations we have K_{i-1} == K_i, we sum these samples up
@@ -414,7 +405,8 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 # compute a_min_i, a_max_i
 #                 self._alpha = .05 if num_iterations >= 9 else alpha[num_iterations]
                 if self._confint_method == "chernoff":
-                    a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, self._alpha)
+#                     a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, self._alpha)
+                    a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, alpha_i)
                 else:  # 'beta'
                     a_i_min, a_i_max = _clopper_pearson_confint(
                         round_one_counts, round_shots, self._alpha / max_rounds
