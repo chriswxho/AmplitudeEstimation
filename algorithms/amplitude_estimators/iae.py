@@ -610,8 +610,8 @@ def _chernoff_confint(
         The Chernoff confidence interval.
     """
     
-    eps = np.sqrt(3 * np.log(2 * max_rounds / alpha) / shots)
-#     eps = np.sqrt( 1/shots * np.log(2/alpha))
+#     eps = np.sqrt(3 * np.log(2 * max_rounds / alpha) / shots)
+    eps = np.sqrt( 1/shots * np.log(2/alpha))
     lower = np.maximum(0, value - eps)
     upper = np.minimum(1, value + eps)
     return lower, upper
