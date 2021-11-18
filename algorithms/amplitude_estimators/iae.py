@@ -289,6 +289,8 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
         a_intervals = [[0.0, 1.0]]  # a priori knowledge of the confidence interval of the estimate
         num_oracle_queries = 0
         num_one_shots = []
+        
+        shots_per_iter = []
 
         # maximum number of rounds
         max_rounds = (
@@ -334,10 +336,13 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 #             alpha = 0.000905 * np.arange(1,11)
 #             print(np.sum(alpha))
 
+            print('T:', max_rounds)
+            print()
+
             # do while loop, keep in mind that we scaled theta mod 2pi such that it lies in [0,1]
             while theta_intervals[-1][1] - theta_intervals[-1][0] > self._epsilon / np.pi:
                 num_iterations += 1
-                
+                print('Iteration', num_iterations)
 #                 if num_iterations > 100:
 #                     break
                 
@@ -348,7 +353,10 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                     theta_intervals[-1],  # type: ignore
                     min_ratio=self._min_ratio,
                 )
-
+            
+#                 print('  α_i:', alpha_i)
+#                 print('  Nshots_i:', shots)
+                print('  k_i:', k)
                 ##### 
                 # modify number of shots for deeper circuits
 #                 print(k, prev_k)
@@ -393,7 +401,6 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 num_one_shots.append(one_counts)
 
                 # track number of Q-oracle calls
-                print(num_iterations, shots, k)
                 num_oracle_queries += shots * k
 
                 # if on the previous iterations we have K_{i-1} == K_i, we sum these samples up
@@ -408,6 +415,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                         j = j + 1
                         round_shots += shots
                         round_one_counts += num_one_shots[-j]
+                        print('  Ki-1 = Ki, shots summed')
                 
 #                 print(Ni)
                 
