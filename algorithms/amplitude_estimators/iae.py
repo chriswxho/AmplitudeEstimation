@@ -53,6 +53,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
         confint_method: str = "beta",
         min_ratio: float = 2,
         quantum_instance: Optional[Union[QuantumInstance, BaseBackend, Backend]] = None,
+        verbose: bool = False,
     ) -> None:
         r"""
         The output of the algorithm is an estimate for the amplitude `a`, that with at least
@@ -67,6 +68,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 Clopper-Pearson intervals (default)
             min_ratio: Minimal q-ratio (:math:`K_{i+1} / K_i`) for FindNextK
             quantum_instance: Quantum Instance or Backend
+            verbose: Prints out debug output if true.
 
         Raises:
             AlgorithmError: if the method to compute the confidence intervals is not supported
@@ -97,6 +99,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
         self._alpha = alpha
         self._min_ratio = min_ratio
         self._confint_method = confint_method
+        self.verbose = verbose
 
     @property
     def quantum_instance(self) -> Optional[QuantumInstance]:
@@ -336,15 +339,15 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 #             alpha = 0.000905 * np.arange(1,11)
 #             print(np.sum(alpha))
 
-            print('T:', max_rounds)
-            print()
+            if self.verbose:
+                print('T:', max_rounds)
+                print()
 
             # do while loop, keep in mind that we scaled theta mod 2pi such that it lies in [0,1]
             while theta_intervals[-1][1] - theta_intervals[-1][0] > self._epsilon / np.pi:
                 num_iterations += 1
-                print('Iteration', num_iterations)
-#                 if num_iterations > 100:
-#                     break
+                if self.verbose:
+                    print('Iteration', num_iterations)
                 
                 # get the next k
                 k, upper_half_circle = self._find_next_k(
@@ -356,7 +359,8 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
             
 #                 print('  α_i:', alpha_i)
 #                 print('  Nshots_i:', shots)
-                print('  k_i:', k)
+                if self.verbose:
+                    print('  k_i:', k)
                 ##### 
                 # modify number of shots for deeper circuits
 #                 print(k, prev_k)
@@ -415,7 +419,8 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                         j = j + 1
                         round_shots += shots
                         round_one_counts += num_one_shots[-j]
-                        print('  Ki-1 = Ki, shots summed')
+                        if self.verbose:
+                            print('  Ki-1 = Ki, shots summed')
                 
 #                 print(Ni)
                 
