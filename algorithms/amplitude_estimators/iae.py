@@ -356,12 +356,12 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 ##### 
                 # modify number of shots for deeper circuits
                 alpha_i = alpha_0 + s * (num_iterations - 1)
+                shots = int(np.log(2/alpha_i) // (2 * self._epsilon ** 2))
+                self._quantum_instance._run_config.shots = shots
+                
                 print('  α_i:', alpha_i)
                 print('  Nshots_i:', shots)
                 print('  k_i:', k)
-                shots = int(np.log(2/alpha_i) / (2 * self._epsilon ** 2))
-                
-                self._quantum_instance._run_config.shots = shots
                 #####
                 
                 # store the variables
