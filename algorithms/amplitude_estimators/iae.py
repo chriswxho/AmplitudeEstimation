@@ -356,10 +356,10 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 ##### 
                 # modify number of shots for deeper circuits
                 alpha_i = alpha_0 + s * (num_iterations - 1)
-                shots = int(np.log(2/alpha_i) // (2 * self._epsilon ** 2))
-                self._quantum_instance._run_config.shots = shots
+#                 shots = int(np.log(2/self._alpha) // (2 * self._epsilon ** 2))
+#                 self._quantum_instance._run_config.shots = shots
                 
-                print('  α_i:', alpha_i)
+                print('  α_i:', self._alpha)
                 print('  Nshots_i:', shots)
                 print('  k_i:', k)
                 #####
@@ -406,7 +406,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 #                 self._alpha = .05 if num_iterations >= 9 else alpha[num_iterations]
                 if self._confint_method == "chernoff":
 #                     a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, self._alpha)
-                    a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, alpha_i)
+                    a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, self._alpha, k)
                 else:  # 'beta'
                     a_i_min, a_i_max = _clopper_pearson_confint(
                         round_one_counts, round_shots, self._alpha / max_rounds
@@ -574,7 +574,7 @@ class IterativeAmplitudeEstimationResult(AmplitudeEstimatorResult):
 
 
 def _chernoff_confint(
-    value: float, shots: int, max_rounds: int, alpha: float
+    value: float, shots: int, max_rounds: int, alpha: float, ki: int=2
 ) -> Tuple[float, float]:
     """Compute the Chernoff confidence interval for `shots` i.i.d. Bernoulli trials.
 
@@ -594,7 +594,9 @@ def _chernoff_confint(
         The Chernoff confidence interval.
     """
     
-    eps = np.sqrt(3 * np.log(2 * max_rounds / alpha) / shots)
+    print('T in CI:',max_rounds)
+    T = 2*np.power(2,max_rounds) / (4*ki+2)
+    eps = np.sqrt(3 * np.log(2 * T / alpha) / shots)
 #     eps = np.sqrt( 1/shots * np.log(2/alpha))
     lower = np.maximum(0, value - eps)
     upper = np.minimum(1, value + eps)
