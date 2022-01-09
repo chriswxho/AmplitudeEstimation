@@ -189,6 +189,8 @@ from .amplitude_estimators import (
     FasterAmplitudeEstimationResult,
     IterativeAmplitudeEstimation,
     IterativeAmplitudeEstimationResult,
+    ModifiedIterativeAmplitudeEstimation,
+    ModifiedIterativeAmplitudeEstimationResult,
     MaximumLikelihoodAmplitudeEstimation,
     MaximumLikelihoodAmplitudeEstimationResult,
     EstimationProblem,

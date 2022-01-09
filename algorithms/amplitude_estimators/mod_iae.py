@@ -10,7 +10,7 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""The Iterative Quantum Amplitude Estimation Algorithm."""
+"""The Modified Iterative Quantum Amplitude Estimation Algorithm."""
 
 from typing import Optional, Union, List, Tuple, Dict, cast
 import numpy as np
@@ -25,7 +25,7 @@ from .estimation_problem import EstimationProblem
 from ..exceptions import AlgorithmError
 
 
-class IterativeAmplitudeEstimation(AmplitudeEstimator):
+class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
     r"""The Iterative Amplitude Estimation algorithm.
 
     This class implements the Iterative Quantum Amplitude Estimation (IQAE) algorithm, proposed
@@ -368,6 +368,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 num_one_shots.append(one_counts)
 
                 # track number of Q-oracle calls
+                # TODO: track per round num_oracle queries
                 num_oracle_queries += shots * k
 
                 # if on the previous iterations we have K_{i-1} == K_i, we sum these samples up
@@ -433,7 +434,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
         # the final estimate is the mean of the confidence interval
         estimation = np.mean(confidence_interval)
 
-        result = IterativeAmplitudeEstimationResult()
+        result = ModifiedIterativeAmplitudeEstimationResult()
         result.alpha = self._alpha
         result.post_processing = estimation_problem.post_processing
         result.num_oracle_queries = num_oracle_queries
@@ -454,11 +455,11 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
         result.ratios = ratios
         
         state['ks'] = powers
-        
+
         return result
 
 
-class IterativeAmplitudeEstimationResult(AmplitudeEstimatorResult):
+class ModifiedIterativeAmplitudeEstimationResult(AmplitudeEstimatorResult):
     """The ``IterativeAmplitudeEstimation`` result object."""
 
     def __init__(self) -> None:
@@ -585,7 +586,9 @@ def _chernoff_confint(
         The Chernoff confidence interval.
     """
     
-    eps = np.sqrt(3 * np.log(2 * max_rounds / alpha) / shots)
+    T = 2*np.power(2,max_rounds) / (4*ki+2)
+    eps = np.sqrt(3 * np.log(2 * T / alpha) / shots)
+#     eps = np.sqrt( 1/shots * np.log(2/alpha))
     lower = np.maximum(0, value - eps)
     upper = np.minimum(1, value + eps)
     return lower, upper
