@@ -17,6 +17,7 @@ from .ae import AmplitudeEstimation, AmplitudeEstimationResult
 from .fae import FasterAmplitudeEstimation, FasterAmplitudeEstimationResult
 from .iae import IterativeAmplitudeEstimation, IterativeAmplitudeEstimationResult
 from .mod_iae import ModifiedIterativeAmplitudeEstimation, ModifiedIterativeAmplitudeEstimationResult
+from .noq_iae import NoQuantumIterativeAmplitudeEstimation, NoQuantumIterativeAmplitudeEstimationResult
 from .mlae import MaximumLikelihoodAmplitudeEstimation, MaximumLikelihoodAmplitudeEstimationResult
 from .estimation_problem import EstimationProblem
 
@@ -31,6 +32,8 @@ __all__ = [
     "IterativeAmplitudeEstimationResult",
     "ModifiedIterativeAmplitudeEstimation",
     "ModifiedIterativeAmplitudeEstimationResult",
+    "NoQuantumIterativeAmplitudeEstimation",
+    "NoQuantumIterativeAmplitudeEstimationResult",
     "MaximumLikelihoodAmplitudeEstimation",
     "MaximumLikelihoodAmplitudeEstimationResult",
     "EstimationProblem",

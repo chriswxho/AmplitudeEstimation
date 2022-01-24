@@ -25,7 +25,7 @@ from .estimation_problem import EstimationProblem
 from ..exceptions import AlgorithmError
 
 
-class IterativeAmplitudeEstimation(AmplitudeEstimator):
+class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
     r"""The Iterative Amplitude Estimation algorithm.
 
     This class implements the Iterative Quantum Amplitude Estimation (IQAE) algorithm, proposed
@@ -281,8 +281,10 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 
     def estimate(
         self, 
-        estimation_problem: EstimationProblem, 
-        state: dict={}, verbose=False
+        estimation_problem: EstimationProblem,
+        k0: int, N: int,
+        state: dict={}, 
+        verbose=False
     ) -> "IterativeAmplitudeEstimationResult":
         # initialize memory variables
         powers = [0]  # list of powers k: Q^k, (called 'k' in paper)
@@ -328,7 +330,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 
         else:
             num_iterations = 0  # keep track of the number of iterations
-            shots = self._quantum_instance._run_config.shots  # number of shots per iteration            
+            shots = self._quantum_instance._run_config.shots  # number of shots per iteration
             
             # do while loop, keep in mind that we scaled theta mod 2pi such that it lies in [0,1]
             while theta_intervals[-1][1] - theta_intervals[-1][0] > self._epsilon / np.pi:
@@ -353,21 +355,32 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 ratios.append((2 * powers[-1] + 1) / (2 * powers[-2] + 1))
                 
                 # run measurements for Q^k A|0> circuit
-                circuit = self.construct_circuit(estimation_problem, k, measurement=True)
-                ret = self._quantum_instance.execute(circuit)
+                
+#                 circuit = self.construct_circuit(estimation_problem, k, measurement=True)
+#                 ret = self._quantum_instance.execute(circuit)
 
-                # get the counts and store them
-                counts = ret.get_counts(circuit)
+#                 # get the counts and store them
+#                 counts = ret.get_counts(circuit)
 
-                # calculate the probability of measuring '1', 'prob' is a_i in the paper
-                num_qubits = circuit.num_qubits - circuit.num_ancillas
-                # type: ignore
-                one_counts, prob = self._good_state_probability(
-                    estimation_problem, counts, num_qubits
-                )
+#                 # calculate the probability of measuring '1', 'prob' is a_i in the paper
+#                 num_qubits = circuit.num_qubits - circuit.num_ancillas
+#                 # type: ignore
+#                 one_counts, prob = self._good_state_probability(
+#                     estimation_problem, counts, num_qubits
+#                 )
 
+                
+    
+#                 print(k0, N)
+                theta = 0.5 * np.arccos(1 - 2*k0/N)
+                a_est = np.sin((2*k+1)*theta)**2
+                print(a_est)
+                one_counts = np.random.binomial(1, a_est, size=shots).sum()
+#                 print(one_counts, shots)
+                prob = one_counts / shots
+            
                 num_one_shots.append(one_counts)
-
+                
                 # track number of Q-oracle calls
                 num_oracle_queries += shots * k
 
@@ -375,6 +388,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 j = 1  # number of times we stayed fixed at the same K
                 round_shots = shots
                 round_one_counts = one_counts
+                
                 if num_iterations > 1:
                     while (
                         powers[num_iterations - j] == powers[num_iterations]
@@ -426,6 +440,8 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 if verbose:
                     print()
                 
+#                 break
+                
                 
 
         # get the latest confidence interval for the estimate of a
@@ -434,7 +450,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
         # the final estimate is the mean of the confidence interval
         estimation = np.mean(confidence_interval)
 
-        result = IterativeAmplitudeEstimationResult()
+        result = NoQuantumIterativeAmplitudeEstimationResult()
         result.alpha = self._alpha
         result.post_processing = estimation_problem.post_processing
         result.num_oracle_queries = num_oracle_queries
@@ -459,7 +475,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
         return result
 
 
-class IterativeAmplitudeEstimationResult(AmplitudeEstimatorResult):
+class NoQuantumIterativeAmplitudeEstimationResult(AmplitudeEstimatorResult):
     """The ``IterativeAmplitudeEstimation`` result object."""
 
     def __init__(self) -> None:
