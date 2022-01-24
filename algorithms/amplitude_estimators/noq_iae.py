@@ -374,7 +374,7 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
 #                 print(k0, N)
                 theta = 0.5 * np.arccos(1 - 2*k0/N)
                 a_est = np.sin((2*k+1)*theta)**2
-                print(a_est)
+#                 print(a_est)
                 one_counts = np.random.binomial(1, a_est, size=shots).sum()
 #                 print(one_counts, shots)
                 prob = one_counts / shots
@@ -382,7 +382,7 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
                 num_one_shots.append(one_counts)
                 
                 # track number of Q-oracle calls
-                num_oracle_queries += shots * k
+                num_oracle_queries += shots * (2*k+1)
 
                 # if on the previous iterations we have K_{i-1} == K_i, we sum these samples up
                 j = 1  # number of times we stayed fixed at the same K
