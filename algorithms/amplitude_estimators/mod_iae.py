@@ -364,6 +364,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                 one_counts, prob = self._good_state_probability(
                     estimation_problem, counts, num_qubits
                 )
+#                 print('prob before: ',prob)
 
                 num_one_shots.append(one_counts)
 
@@ -383,6 +384,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                         j = j + 1
                         round_shots += shots
                         round_one_counts += num_one_shots[-j]
+#                         print('prob current: ', round_one_counts / round_shots)
                 
                 # bookkeeping
                 state['round_shots'][k] = round_shots
@@ -390,6 +392,9 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                 
                 if verbose:
                     print('round_shots:', round_shots) # look at this, changing between iterations
+                
+                prob = round_one_counts / round_shots
+#                 print('prob after: ', prob)
                 
                 # compute a_min_i, a_max_i
 #                 self._alpha = .05 if num_iterations >= 9 else alpha[num_iterations]

@@ -377,7 +377,6 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
 #                 print(a_est)
                 one_counts = np.random.binomial(1, a_est, size=shots).sum()
 #                 print(one_counts, shots)
-                prob = one_counts / shots
             
                 num_one_shots.append(one_counts)
                 
@@ -397,13 +396,17 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
                         j = j + 1
                         round_shots += shots
                         round_one_counts += num_one_shots[-j]
-                
+                        
+                        
                 # bookkeeping
                 state['round_shots'][k] = round_shots
                 state['n_queries'][k] = round_shots*k
                 
                 if verbose:
                     print('round_shots:', round_shots) # look at this, changing between iterations
+                
+                prob = round_one_counts / round_shots
+                print('prob current: ', round_one_counts / round_shots)
                 
                 # compute a_min_i, a_max_i
 #                 self._alpha = .05 if num_iterations >= 9 else alpha[num_iterations]
@@ -437,6 +440,7 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
                 a_l = cast(float, a_l)
                 a_intervals.append([a_l, a_u])
                 
+                print(f'ampls: [{a_l}, {a_u}]')
                 if verbose:
                     print()
                 
