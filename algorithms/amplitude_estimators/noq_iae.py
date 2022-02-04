@@ -162,6 +162,7 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
         Raises:
             AlgorithmError: if min_ratio is smaller or equal to 1
         """
+            
         if min_ratio <= 1:
             raise AlgorithmError("min_ratio must be larger than 1 to ensure convergence")
 
@@ -174,23 +175,33 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
         max_scaling = int(1 / (2 * (theta_u - theta_l)))
         scaling = max_scaling - (max_scaling - 2) % 4  # bring into the form 4 * k_max + 2
 
+        locs = ['upper', 'lower', 'same k']
+        def scale_check(i):
+            if int(scaling * theta_l) != int(scaling * theta_u) and False:
+                print(f'scaling check fails in {locs[i]}' + (f' with k={str(k)}' if i==2 else '') + ':',
+                      f'floor(theta_l*scaling) = {int(scaling * theta_l)}, floor(theta_u*scaling) = {int(scaling * theta_u)}')
+                    
         # find the largest feasible scaling factor K_next, and thus k_next
         while scaling >= min_ratio * old_scaling:
+                
             theta_min = scaling * theta_l - int(scaling * theta_l)
             theta_max = scaling * theta_u - int(scaling * theta_u)
 
             if theta_min <= theta_max <= 0.5 and theta_min <= 0.5:
                 # the extrapolated theta interval is in the upper half-circle
                 upper_half_circle = True
+                scale_check(0)
                 return int((scaling - 2) / 4), upper_half_circle
 
             elif theta_max >= 0.5 and theta_max >= theta_min >= 0.5:
-                # the extrapolated theta interval is in the upper half-circle
+                # the extrapolated theta interval is not in the upper half-circle
                 upper_half_circle = False
+                scale_check(1)
                 return int((scaling - 2) / 4), upper_half_circle
 
             scaling -= 4
-
+        
+        scale_check(2)
         # if we do not find a feasible k, return the old one
         return int(k), upper_half_circle
 
@@ -343,11 +354,10 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
                     theta_intervals[-1],  # type: ignore
                     min_ratio=self._min_ratio,
                 )
-
+                
                 if verbose:
-#                     print('  α_i:', self._alpha)
-#                     print('  Nshots_i:', shots)
-#                     if k != powers[-1]: n_rounds += 1
+                    scaling = 4*k+2
+                    print('intermediate same?', int(scaling * theta_intervals[-1][1]) == int(scaling * theta_intervals[-1][0]))
                     print('  k_i:', k)
                 
                 # store the variables
@@ -374,7 +384,7 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
 #                 print(k0, N)
                 theta = 0.5 * np.arccos(1 - 2*k0/N)
                 a_est = np.sin((2*k+1)*theta)**2
-#                 print(a_est)
+                
                 one_counts = np.random.binomial(1, a_est, size=shots).sum()
 #                 print(one_counts, shots)
             
@@ -406,7 +416,8 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
                     print('round_shots:', round_shots) # look at this, changing between iterations
                 
                 prob = round_one_counts / round_shots
-                print('prob current: ', round_one_counts / round_shots)
+#                 print('prob current: ', prob)
+#                 print('prob true: ', a_est)
                 
                 # compute a_min_i, a_max_i
 #                 self._alpha = .05 if num_iterations >= 9 else alpha[num_iterations]
@@ -426,10 +437,18 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
                     theta_min_i = 1 - np.arccos(1 - 2 * a_i_max) / 2 / np.pi
                     theta_max_i = 1 - np.arccos(1 - 2 * a_i_min) / 2 / np.pi
                 
+                if verbose:
+                    print('theta_min_i:', theta_min_i)
+                    print('theta_max_i:', theta_max_i)
+                    
+#                 if theta_min_i > theta_max_i:
+#                     theta_min_i, theta_max_i = theta_max_i, theta_min_i
+                
                 # compute theta_u, theta_l of this iteration
                 scaling = 4 * k + 2  # current K_i factor
-                theta_u = (int(scaling * theta_intervals[-1][1]) + theta_max_i) / scaling
-                theta_l = (int(scaling * theta_intervals[-1][0]) + theta_min_i) / scaling
+                scaled_theta = min(int(scaling * theta_intervals[-1][1]), int(scaling * theta_intervals[-1][0]))
+                theta_u = (scaled_theta + theta_max_i) / scaling
+                theta_l = (scaled_theta + theta_min_i) / scaling
                 
                 theta_intervals.append([theta_l, theta_u])
 
@@ -440,13 +459,10 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
                 a_l = cast(float, a_l)
                 a_intervals.append([a_l, a_u])
                 
-                print(f'ampls: [{a_l}, {a_u}]')
                 if verbose:
+                    print(f'ampls: [{a_l}, {a_u}]')
+                    print(f'thetas: [{theta_l}, {theta_u}]')
                     print()
-                
-#                 break
-                
-                
 
         # get the latest confidence interval for the estimate of a
         confidence_interval = tuple(a_intervals[-1])
@@ -607,8 +623,11 @@ def _chernoff_confint(
     """
     
     eps = np.sqrt(3 * np.log(2 * max_rounds / alpha) / shots)
+#     print('eps in CI:', eps)
     lower = np.maximum(0, value - eps)
     upper = np.minimum(1, value + eps)
+#     print(f'initial CI: {lower, upper}')
+    
     return lower, upper
 
 

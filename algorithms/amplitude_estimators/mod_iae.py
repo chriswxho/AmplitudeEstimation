@@ -162,6 +162,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
         Raises:
             AlgorithmError: if min_ratio is smaller or equal to 1
         """
+            
         if min_ratio <= 1:
             raise AlgorithmError("min_ratio must be larger than 1 to ensure convergence")
 
@@ -174,26 +175,36 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
         max_scaling = int(1 / (2 * (theta_u - theta_l)))
         scaling = max_scaling - (max_scaling - 2) % 4  # bring into the form 4 * k_max + 2
 
+        locs = ['upper', 'lower', 'same k']
+        def scale_check(i):
+            if int(scaling * theta_l) != int(scaling * theta_u) and False:
+                print(f'scaling check fails in {locs[i]}:',
+                      f'floor(theta_l*scaling) = {int(scaling * theta_l)}, floor(theta_u*scaling) = {int(scaling * theta_u)}')
+                    
         # find the largest feasible scaling factor K_next, and thus k_next
         while scaling >= min_ratio * old_scaling:
+                
             theta_min = scaling * theta_l - int(scaling * theta_l)
             theta_max = scaling * theta_u - int(scaling * theta_u)
 
             if theta_min <= theta_max <= 0.5 and theta_min <= 0.5:
                 # the extrapolated theta interval is in the upper half-circle
                 upper_half_circle = True
+                scale_check(0)
                 return int((scaling - 2) / 4), upper_half_circle
 
             elif theta_max >= 0.5 and theta_max >= theta_min >= 0.5:
-                # the extrapolated theta interval is in the upper half-circle
+                # the extrapolated theta interval is not in the upper half-circle
                 upper_half_circle = False
+                scale_check(1)
                 return int((scaling - 2) / 4), upper_half_circle
 
             scaling -= 4
-
+        
+        scale_check(2)
         # if we do not find a feasible k, return the old one
         return int(k), upper_half_circle
-
+    
     def construct_circuit(
         self, estimation_problem: EstimationProblem, k: int = 0, measurement: bool = False
     ) -> QuantumCircuit:
@@ -406,6 +417,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                         round_one_counts, round_shots, self._alpha / max_rounds
                     )
 
+                    
                 # compute theta_min_i, theta_max_i
                 if upper_half_circle:
                     theta_min_i = np.arccos(1 - 2 * a_i_min) / 2 / np.pi
@@ -413,11 +425,17 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                 else:
                     theta_min_i = 1 - np.arccos(1 - 2 * a_i_max) / 2 / np.pi
                     theta_max_i = 1 - np.arccos(1 - 2 * a_i_min) / 2 / np.pi
+
                 
                 # compute theta_u, theta_l of this iteration
                 scaling = 4 * k + 2  # current K_i factor
-                theta_u = (int(scaling * theta_intervals[-1][1]) + theta_max_i) / scaling
-                theta_l = (int(scaling * theta_intervals[-1][0]) + theta_min_i) / scaling
+                scaled_interval = min(int(scaling * theta_intervals[-1][1]), int(scaling * theta_intervals[-1][0]))
+                theta_u = (scaled_interval + theta_max_i) / scaling
+                theta_l = (scaled_interval + theta_min_i) / scaling
+                
+#                 theta_u = (int(scaling * theta_intervals[-1][1]) + theta_max_i) / scaling
+#                 theta_l = (int(scaling * theta_intervals[-1][0]) + theta_min_i) / scaling
+                
                 
                 theta_intervals.append([theta_l, theta_u])
 
