@@ -282,7 +282,9 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
     def estimate(
         self, 
         estimation_problem: EstimationProblem, 
-        state: dict={}, verbose=False
+        state: dict={},
+        bugs: set=set(),
+        verbose=False
     ) -> "IterativeAmplitudeEstimationResult":
         # initialize memory variables
         powers = [0]  # list of powers k: Q^k, (called 'k' in paper)
@@ -384,15 +386,21 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                         round_shots += shots
                         round_one_counts += num_one_shots[-j]
                 
+                if 'prob' not in bugs:
+                    prob = round_one_counts / round_shots
+                    
                 # bookkeeping
                 state['round_shots'][k] = round_shots
                 state['n_queries'][k] = round_shots*k
+                
+                # force failure if infinite looping
+                if state['round_shots'][k] > 1e5:
+                    break
                 
                 if verbose:
                     print('round_shots:', round_shots) # look at this, changing between iterations
                 
                 # compute a_min_i, a_max_i
-#                 self._alpha = .05 if num_iterations >= 9 else alpha[num_iterations]
                 if self._confint_method == "chernoff":
 #                     a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, self._alpha)
                     a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, self._alpha, k)
@@ -411,10 +419,17 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 
                 # compute theta_u, theta_l of this iteration
                 scaling = 4 * k + 2  # current K_i factor
-                theta_u = (int(scaling * theta_intervals[-1][1]) + theta_max_i) / scaling
-                theta_l = (int(scaling * theta_intervals[-1][0]) + theta_min_i) / scaling
+                if 'scale' in bugs:
+                    theta_u = (int(scaling * theta_intervals[-1][1]) + theta_max_i) / scaling
+                    theta_l = (int(scaling * theta_intervals[-1][0]) + theta_min_i) / scaling
+                else:
+                    scaled_theta = min(int(scaling * theta_intervals[-1][1]), int(scaling * theta_intervals[-1][0]))
+                    theta_u = (scaled_theta + theta_max_i) / scaling
+                    theta_l = (scaled_theta + theta_min_i) / scaling
                 
                 theta_intervals.append([theta_l, theta_u])
+                
+                
 
                 # compute a_u_i, a_l_i
                 a_u = np.sin(2 * np.pi * theta_u) ** 2

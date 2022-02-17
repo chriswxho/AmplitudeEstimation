@@ -381,7 +381,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
 
                 # track number of Q-oracle calls
                 # TODO: track per round num_oracle queries
-                num_oracle_queries += shots * (2*k+1)
+                num_oracle_queries += shots * k
 
                 # if on the previous iterations we have K_{i-1} == K_i, we sum these samples up
                 j = 1  # number of times we stayed fixed at the same K

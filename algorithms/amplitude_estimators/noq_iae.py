@@ -364,34 +364,17 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
                 powers.append(k)
                 ratios.append((2 * powers[-1] + 1) / (2 * powers[-2] + 1))
                 
-                # run measurements for Q^k A|0> circuit
+                # run classical replacement for Q^k A|0> circuit
                 
-#                 circuit = self.construct_circuit(estimation_problem, k, measurement=True)
-#                 ret = self._quantum_instance.execute(circuit)
-
-#                 # get the counts and store them
-#                 counts = ret.get_counts(circuit)
-
-#                 # calculate the probability of measuring '1', 'prob' is a_i in the paper
-#                 num_qubits = circuit.num_qubits - circuit.num_ancillas
-#                 # type: ignore
-#                 one_counts, prob = self._good_state_probability(
-#                     estimation_problem, counts, num_qubits
-#                 )
-
-                
-    
-#                 print(k0, N)
                 theta = 0.5 * np.arccos(1 - 2*k0/N)
                 a_est = np.sin((2*k+1)*theta)**2
                 
                 one_counts = np.random.binomial(1, a_est, size=shots).sum()
-#                 print(one_counts, shots)
             
                 num_one_shots.append(one_counts)
                 
                 # track number of Q-oracle calls
-                num_oracle_queries += shots * (2*k+1)
+                num_oracle_queries += shots * k
 
                 # if on the previous iterations we have K_{i-1} == K_i, we sum these samples up
                 j = 1  # number of times we stayed fixed at the same K
@@ -415,14 +398,12 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
                 if verbose:
                     print('round_shots:', round_shots) # look at this, changing between iterations
                 
+                # update prob with summed stats
                 prob = round_one_counts / round_shots
-#                 print('prob current: ', prob)
-#                 print('prob true: ', a_est)
+#                 prob = one_counts / shots
                 
                 # compute a_min_i, a_max_i
-#                 self._alpha = .05 if num_iterations >= 9 else alpha[num_iterations]
                 if self._confint_method == "chernoff":
-#                     a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, self._alpha)
                     a_i_min, a_i_max = _chernoff_confint(prob, round_shots, max_rounds, self._alpha, k)
                 else:  # 'beta'
                     a_i_min, a_i_max = _clopper_pearson_confint(
@@ -440,15 +421,15 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
                 if verbose:
                     print('theta_min_i:', theta_min_i)
                     print('theta_max_i:', theta_max_i)
-                    
-#                 if theta_min_i > theta_max_i:
-#                     theta_min_i, theta_max_i = theta_max_i, theta_min_i
                 
                 # compute theta_u, theta_l of this iteration
                 scaling = 4 * k + 2  # current K_i factor
                 scaled_theta = min(int(scaling * theta_intervals[-1][1]), int(scaling * theta_intervals[-1][0]))
                 theta_u = (scaled_theta + theta_max_i) / scaling
                 theta_l = (scaled_theta + theta_min_i) / scaling
+                
+#                 theta_u = (int(scaling * theta_intervals[-1][1]) + theta_max_i) / scaling
+#                 theta_l = (int(scaling * theta_intervals[-1][0]) + theta_min_i) / scaling
                 
                 theta_intervals.append([theta_l, theta_u])
 
