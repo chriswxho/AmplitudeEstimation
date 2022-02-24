@@ -168,7 +168,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
 
         # initialize variables
         theta_l, theta_u = theta_interval
-        old_scaling = 4 * k + 2  # current scaling factor, called K := (4k + 2)
+        old_scaling = 1.5 * (4 * k + 2)  # current scaling factor, called K := (4k + 2)
 
         # the largest feasible scaling factor K cannot be larger than K_max,
         # which is bounded by the length of the current confidence interval
@@ -338,7 +338,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
 
         else:
             num_iterations = 0  # keep track of the number of iterations
-            shots = self._quantum_instance._run_config.shots  # number of shots per iteration            
+            shots = self._quantum_instance._run_config.shots  # number of shots per iteration
             
             # do while loop, keep in mind that we scaled theta mod 2pi such that it lies in [0,1]
             while theta_intervals[-1][1] - theta_intervals[-1][0] > self._epsilon / np.pi:
@@ -351,6 +351,8 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                     theta_intervals[-1],  # type: ignore
                     min_ratio=self._min_ratio,
                 )
+                
+#                 shots = 205.3 * (k - 2)/4
 
                 if verbose:
 #                     print('  α_i:', self._alpha)
