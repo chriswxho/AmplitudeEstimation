@@ -168,7 +168,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
 
         # initialize variables
         theta_l, theta_u = theta_interval
-        old_scaling = 1.5 * (4 * k + 2)  # current scaling factor, called K := (4k + 2)
+        old_scaling = 4 * k + 2  # current scaling factor, called K := (4k + 2)
 
         # the largest feasible scaling factor K cannot be larger than K_max,
         # which is bounded by the length of the current confidence interval
@@ -292,7 +292,10 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
 
     def estimate(
         self, estimation_problem: EstimationProblem, 
-        state: dict={}, verbose=False
+        min_ratio: float=2.0,
+        state: dict={},
+        nmax_only=False,
+        verbose=False
     ) -> "IterativeAmplitudeEstimationResult":
         # initialize memory variables
         powers = [0]  # list of powers k: Q^k, (called 'k' in paper)
@@ -349,10 +352,11 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                     powers[-1],
                     upper_half_circle,
                     theta_intervals[-1],  # type: ignore
-                    min_ratio=self._min_ratio,
+                    min_ratio=min_ratio,
                 )
                 
-#                 shots = 205.3 * (k - 2)/4
+                if nmax_only:
+                    shots = max(205.3 * (k - 2)/4, 200)
 
                 if verbose:
 #                     print('  α_i:', self._alpha)
