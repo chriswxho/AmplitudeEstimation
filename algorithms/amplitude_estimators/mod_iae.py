@@ -141,9 +141,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
     def _find_next_k(
         self,
         k_prev: int,
-#         upper_half_circle: bool,
         theta_interval: Tuple[float, float],
-#         min_ratio: float = 2.0,
     ) -> int:
         """Find the largest integer k_next, such that the interval (4 * k_next + 2)*theta_interval
         lies completely in [0, pi] or [pi, 2pi], for theta_interval = (theta_lower, theta_upper).
@@ -166,12 +164,12 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
         # initialize variables
         theta_l, theta_u = theta_interval
         K_prev = 2 * k_prev + 1
-        K = int(np.pi/2 / (theta_u-theta_l))
-        K -= (K + 1) % 2
+        K = int(1 / (theta_u-theta_l))
+        K -= (K + 1) % 2 # subtract 1 if even
         
         while K >= 3 * K_prev:
-            if int(K * theta_u / (np.pi/2)) == int(K * theta_l / (np.pi/2)):
-                return (K - 1) // 2
+            if int(K * theta_u) == int(K * theta_l):
+                return (K - 1) // 2 # integer is guaranteed, but cast to int
             K -= 2
         
         return k_prev
@@ -301,7 +299,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
 
     def estimate(
         self, estimation_problem: EstimationProblem, 
-        min_ratio: float=2.0,
+        min_ratio: float=2.0, 
         state: dict={},
         nmax_only=False,
         verbose=False
@@ -309,20 +307,17 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
         # initialize memory variables
         powers = [0]  # list of powers k: Q^k, (called 'k' in paper)
         ratios = []  # list of multiplication factors (called 'q' in paper)
-        theta_intervals = [[0, 1 / 4]]  # a priori knowledge of theta / 2 / pi
+        theta_intervals = [[0, 1]]  # a priori knowledge of (theta / 2 / pi) TODO: fix
         a_intervals = [[0.0, 1.0]]  # a priori knowledge of the confidence interval of the estimate
         num_oracle_queries = 0
-        num_one_shots = []
+        num_shots = [] # number of shots taken per iteration
 
         # maximum number of rounds
-#         max_rounds = (
-#             int(np.log(self._min_ratio * np.pi / 8 / self._epsilon) / np.log(self._min_ratio)) + 1
-#         )
-        max_rounds = int(np.log(3 * np.pi / 4 / self._epsilon))
-        upper_half_circle = True  # initially theta is in the upper half-circle
-        
+#         T = int(np.log(3 * np.pi / 4 / self._epsilon, 3))
+        K_max = np.pi / 4 /self._epsilon
+                
         if verbose:
-            print('T:', max_rounds)
+            print('T:', T)
             print()
 
         # for statevector we can directly return the probability to measure 1
@@ -359,121 +354,146 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
             k = 0
             
             # do while loop, keep in mind that we scaled theta mod 2pi such that it lies in [0,1]
-            while theta_intervals[-1][1] - theta_intervals[-1][0] > 2 * self._epsilon:
+            while theta_intervals[-1][1] - theta_intervals[-1][0] > 4 * self._epsilon / np.pi:
                 num_iterations += 1
                 
+                k = powers[num_iterations - 1]
                 K = 2*k+1
+                alpha_i = self._alpha / 2 * K / K_max # confidence level for this iteration
+                shots_i_max = int(SIN_CONST * np.log(2 / alpha_i))
                 
-                alpha_i = self._alpha / 2 * K / np.power(3, max_rounds) # confidence level for this iteration
-                shots_i_max = SIN_CONST * np.log(2 / alpha_i)
+                one_counts_total = 0
+                
+                round_shots = 0
+                
+                while powers[num_iterations - 1] == k:
+                    
+                    # TODO: give option for no-quantum simulation
+                    N = min(round_shots + shots, shots_i_max)
+                    self._quantum_instance._run_config.shots = N - round_shots
+                    print()
+                    print('shots_i_max:', shots_i_max)
+                    print('N-round_shots:', N - round_shots)
+                    round_shots = N
+                
+                    ## run measurements for Q^k A|0> circuit
+                    circuit = self.construct_circuit(estimation_problem, k, measurement=True)
+                    ret = self._quantum_instance.execute(circuit)
 
-                if nmax_only:
-                    pass # TODO: remove this here and from func signature
+                    # get the counts and store them
+                    counts = ret.get_counts(circuit) # TODO: is this sum of 1s measured across all shots?
+
+                    # calculate the probability of measuring '1', 'prob' is a_i in the paper
+                    num_qubits = circuit.num_qubits - circuit.num_ancillas
+                    # type: ignore
+                    one_counts, _ = self._good_state_probability(
+                        estimation_problem, counts, num_qubits
+                    )
+                    
+                    print('one_counts:', one_counts)
+                    print('prob from _good_state_prob:', _)
+                    
+                    one_counts_total += one_counts
+                    prob = one_counts_total / N
+                    
+                    ##
+                
+                    # compute a_min_i, a_max_i
+                    if self._confint_method == "chernoff":
+                        a_i_min, a_i_max = _chernoff_confint(prob, N, alpha_i)
+                    else:  # 'beta'
+                        a_i_min, a_i_max = _clopper_pearson_confint(
+                            round_one_counts, round_shots, alpha_i / T
+                        )
+                    
+                    R_i = int(K * theta_intervals[-1][0])
+#                 R_equal = int(4 * K * theta_intervals[-1][0]) == int(4 * K * theta_intervals[-1][1])
+                    q_i = (R_i % 4) + 1
+
+                    # compute theta_i_min, theta_i_max
+                    if q_i == 1:
+                        theta_i_min = np.arcsin(np.sqrt(a_i_min))
+                        theta_i_max = np.arcsin(np.sqrt(a_i_max))
+                    elif q_i == 2:
+                        theta_i_min = -np.arcsin(np.sqrt(a_i_max)) + np.pi
+                        theta_i_max = -np.arcsin(np.sqrt(a_i_min)) + np.pi
+                    elif q_i == 3:
+                        theta_i_min = np.arcsin(np.sqrt(a_i_min)) + np.pi
+                        theta_i_max = np.arcsin(np.sqrt(a_i_max)) + np.pi
+                    elif q_i == 4:
+                        theta_i_min = -np.arcsin(np.sqrt(a_i_max)) + 2*np.pi
+                        theta_i_max = -np.arcsin(np.sqrt(a_i_min)) + 2*np.pi
+                    else:
+                        raise ValueError('Invalid quartile computed')
+
+                    if not True:
+                        print('equal R:', R_equal)
+                        print(f'q_i: {q_i}, theta_i_min: {theta_i_min}, theta_i_max: {theta_i_max}')
+                        
+                    theta_i_min /= (np.pi / 2)
+                    theta_i_max /= (np.pi / 2)
+                    
+                    # compute theta_u, theta_l of this iteration
+                    theta_l = (R_i + theta_i_min) / K
+                    theta_u = (R_i + theta_i_max) / K
+                        
+                    theta_intervals.append([theta_l, theta_u])
+
+                    # compute a_u_i, a_l_i
+                    a_l = float(np.square(np.sin(theta_l)))
+                    a_u = float(np.square(np.sin(theta_u)))
+                    a_intervals.append([a_l, a_u])
+                    
+                    print('theta interval:', [theta_l, theta_u])
+                    print('a interval:', [a_l, a_u])
+                    
+                    if theta_intervals[-1][1] - theta_intervals[-1][0] < 4 * self._epsilon / np.pi:
+                        break
+    
+                    # get the next k
+                    k = self._find_next_k(
+                        powers[-1],
+                        theta_intervals[-1],
+                    )
+                    
+                    print('k_i:', k)
+            
+                # after inner loop terminates
+                # store the variables
+                
+                powers.append(k)
+                ratios.append((2 * powers[-1] + 1) / (2 * powers[-2] + 1))
+                num_shots.append(N) # TODO: change name later
 
                 if verbose:
                     print('  k_i:', k)
                 
-                # store the variables
-                powers.append(k)
-                ratios.append((2 * powers[-1] + 1) / (2 * powers[-2] + 1))
                 
-                # run measurements for Q^k A|0> circuit
-                circuit = self.construct_circuit(estimation_problem, k, measurement=True)
-                ret = self._quantum_instance.execute(circuit)
-
-                # get the counts and store them
-                counts = ret.get_counts(circuit)
-
-                # calculate the probability of measuring '1', 'prob' is a_i in the paper
-                num_qubits = circuit.num_qubits - circuit.num_ancillas
-                # type: ignore
-                one_counts, prob = self._good_state_probability(
-                    estimation_problem, counts, num_qubits
-                )
-
-                num_one_shots.append(one_counts)
 
                 # track number of Q-oracle calls
-                # TODO: track per round num_oracle queries
-                num_oracle_queries += shots * K
-
-                # if on the previous iterations we have K_{i-1} == K_i, we sum these samples up
-                j = 1  # number of times we stayed fixed at the same K
-                round_shots = shots
-                round_one_counts = one_counts
-                if num_iterations > 1:
-                    while (
-                        powers[num_iterations - j] == powers[num_iterations]
-                        and num_iterations >= j + 1
-                    ):
-                        j = j + 1
-                        round_shots += shots
-                        round_one_counts += num_one_shots[-j]
+                num_oracle_queries += N * K
                 
-                # bookkeeping
-                state['round_shots'][k] = round_shots
-                state['n_queries'][k] = round_shots*K
+#                 # bookkeeping
+                state['round_shots'][k] = N
+                state['n_queries'][k] = N * K
                 
                 if verbose:
                     print('round_shots:', round_shots) # look at this, changing between iterations
                 
-                prob = round_one_counts / round_shots
                 
-                # compute a_min_i, a_max_i
-                N = min(round_shots, shots_i_max)
-                if self._confint_method == "chernoff":
-                    a_i_min, a_i_max = _chernoff_confint(prob, N, alpha_i)
-                else:  # 'beta'
-                    a_i_min, a_i_max = _clopper_pearson_confint(
-                        round_one_counts, round_shots, alpha_i / max_rounds
-                    )
+                
+                
+                
+                
                     
-                R_i = int(K * theta_intervals[-1][0] / (np.pi / 2))
-                R_equal = int(K * theta_intervals[-1][0] / (np.pi / 2)) == int(K * theta_intervals[-1][1] / (np.pi / 2))
-                q_i = (R_i % 4) + 1
                 
-                # compute theta_i_min, theta_i_max
-                if q_i == 1:
-                    theta_i_min = np.arcsin(np.sqrt(a_i_min))
-                    theta_i_max = np.arcsin(np.sqrt(a_i_max))
-                elif q_i == 2:
-                    theta_i_min = -np.arcsin(np.sqrt(a_i_max)) + np.pi
-                    theta_i_max = -np.arcsin(np.sqrt(a_i_min)) + np.pi
-                elif q_i == 3:
-                    theta_i_min = np.arcsin(np.sqrt(a_i_min)) + np.pi
-                    theta_i_max = np.arcsin(np.sqrt(a_i_max)) + np.pi
-                elif q_i == 4:
-                    theta_i_min = -np.arcsin(np.sqrt(a_i_max)) + 2*np.pi
-                    theta_i_max = -np.arcsin(np.sqrt(a_i_min)) + 2*np.pi
-                else:
-                    raise ValueError('Invalid quartile computed')
-                
-                if not R_equal:
-                    print('equal R:', R_equal)
-                    print(f'q_i: {q_i}, theta_i_min: {theta_i_min}, theta_i_max: {theta_i_max}')
                 
 
-                # compute theta_u, theta_l of this iteration
-                theta_l = (R_i * np.pi/2 + theta_i_min) / K
-                theta_u = (R_i * np.pi/2 + theta_i_max) / K
-                
-                theta_intervals.append([theta_l, theta_u])
-
-                # compute a_u_i, a_l_i
-                a_l = float(np.square(np.sin(theta_l)))
-                a_u = float(np.square(np.sin(theta_u)))
-#                 a_u = cast(float, a_u)
-#                 a_l = cast(float, a_l)
-                a_intervals.append([a_l, a_u])
-                
-                # get the next k
-                k = self._find_next_k(
-                    powers[-1],
-                    theta_intervals[-1],
-                )
                 
                 if verbose:
                     print()
+                    
+                
                 
         # get the latest confidence interval for the estimate of a
         confidence_interval = tuple(a_intervals[-1])
@@ -619,21 +639,21 @@ def _chernoff_confint(
 
     The confidence interval is
 
-        [value - eps, value + eps], where eps = sqrt(3 * log(2 * max_rounds/ alpha) / shots)
+        [value - eps, value + eps], where eps = sqrt(3 * log(2 * T/ alpha) / shots)
 
     but at most [0, 1].
 
     Args:
         value: The current estimate.
         shots: The number of shots.
-        max_rounds: The maximum number of rounds, used to compute epsilon_a.
+        T: The maximum number of rounds, used to compute epsilon_a.
         alpha: The confidence level, used to compute epsilon_a.
 
     Returns:
         The Chernoff confidence interval.
     """
     
-    # TODO: remove max_rounds and k_i from this function
+    # TODO: rename the parameters
     eps = np.sqrt(1 / (2 * shots) * np.log(2 / alpha_i))
 #     eps = np.sqrt( 1/shots * np.log(2/alpha))
     lower = np.maximum(0, value - eps)
