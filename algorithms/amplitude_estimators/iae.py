@@ -371,7 +371,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 num_one_shots.append(one_counts)
 
                 # track number of Q-oracle calls
-                num_oracle_queries += shots * k
+                num_oracle_queries += shots * (2*k+1)
 
                 # if on the previous iterations we have K_{i-1} == K_i, we sum these samples up
                 j = 1  # number of times we stayed fixed at the same K
@@ -391,7 +391,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                     
                 # bookkeeping
                 state['round_shots'][k] = round_shots
-                state['n_queries'][k] = round_shots*k
+                state['n_queries'][k] = round_shots*(2*k+1)
                 
                 # force failure if infinite looping
                 if state['round_shots'][k] > 1e5:
