@@ -371,10 +371,11 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                     # TODO: give option for no-quantum simulation
                     N = min(round_shots + shots, shots_i_max)
                     self._quantum_instance._run_config.shots = N - round_shots
-                    print()
-                    print('shots_i_max:', shots_i_max)
-                    print('N:', N)
-                    print('N - round_shots:', N - round_shots)
+                    if verbose:
+                        print()
+                        print('shots_i_max:', shots_i_max)
+                        print('N:', N)
+                        print('N - round_shots:', N - round_shots)
                     round_shots = N
                 
                     ## run measurements for Q^k A|0> circuit
@@ -391,13 +392,13 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                         estimation_problem, counts, num_qubits
                     )
                     
-                    print('one_counts:', one_counts)
-                    print('prob from _good_state_prob:', _)
                     
                     one_counts_total += one_counts
                     prob = one_counts_total / N
-
-                    print('prob:', prob)
+                    if verbose:
+                        print('one_counts:', one_counts)
+                        print('prob from _good_state_prob:', _)
+                        print('prob:', prob)
                     
                     ##
                 
@@ -410,11 +411,11 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                         )
                     
                     R_i = int(K * theta_intervals[-1][0])
-                    print("R_i:", R_i)
+                    if verbose:
+                        print("R_i:", R_i)
 #                 R_equal = int(4 * K * theta_intervals[-1][0]) == int(4 * K * theta_intervals[-1][1])
                     q_i = (R_i % 4) + 1
 
-                    print()
                     # compute theta_i_min, theta_i_max
                     if q_i == 1:
                         theta_i_min = np.arcsin(np.sqrt(a_i_min))
@@ -435,6 +436,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                         print('equal R:', R_equal)
                         print(f'q_i: {q_i}, theta_i_min: {theta_i_min}, theta_i_max: {theta_i_max}')
                         
+                    # fixing units of theta_i ci and ensuring it lies in [0, 1]
                     theta_i_min /= (np.pi / 2)
                     theta_i_max /= (np.pi / 2)
                     theta_i_min -= (q_i - 1)
@@ -451,10 +453,11 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                     a_u = float(np.square(np.sin(np.pi * theta_u / 2)))
                     a_intervals.append([a_l, a_u])
 
-                    print('a i interval:', [a_i_min, a_i_max])
-                    print('theta i interval:', [theta_i_min, theta_i_max])
-                    print('theta interval:', [theta_l, theta_u])
-                    print('a interval:', [a_l, a_u])
+                    if verbose:
+                        print('a i interval:', [a_i_min, a_i_max])
+                        print('theta i interval:', [theta_i_min, theta_i_max])
+                        print('theta interval:', [theta_l, theta_u])
+                        print('a interval:', [a_l, a_u])
                     
                     if theta_intervals[-1][1] - theta_intervals[-1][0] < 4 * self._epsilon / np.pi:
                         break
@@ -465,7 +468,8 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                         theta_intervals[-1],
                     )
                     
-                    print('k_i:', k)
+                    if verbose:
+                        print('k_i:', k)
             
                 # after inner loop terminates
                 # store the variables
