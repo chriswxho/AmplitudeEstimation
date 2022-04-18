@@ -168,7 +168,11 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
         K -= (K + 1) % 2 # subtract 1 if even
         
         while K >= 3 * K_prev:
-            if int(K * theta_u) == int(K * theta_l):
+            R_u = int(K * theta_u)
+            R_l = int(K * theta_l)
+            if (K * theta_u) - R_u < self._epsilon / 1000:
+                R_u -= 1
+            if R_u == R_l:
                 return (K - 1) // 2 # integer is guaranteed, but cast to int
             K -= 2
         
@@ -417,18 +421,24 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                     q_i = (R_i % 4) + 1
 
                     # compute theta_i_min, theta_i_max
-                    if q_i == 1:
-                        theta_i_min = np.arcsin(np.sqrt(a_i_min))
-                        theta_i_max = np.arcsin(np.sqrt(a_i_max))
-                    elif q_i == 2:
-                        theta_i_min = -np.arcsin(np.sqrt(a_i_max)) + np.pi
-                        theta_i_max = -np.arcsin(np.sqrt(a_i_min)) + np.pi
-                    elif q_i == 3:
-                        theta_i_min = np.arcsin(np.sqrt(a_i_min)) + np.pi
-                        theta_i_max = np.arcsin(np.sqrt(a_i_max)) + np.pi
-                    elif q_i == 4:
-                        theta_i_min = -np.arcsin(np.sqrt(a_i_max)) + 2*np.pi
-                        theta_i_max = -np.arcsin(np.sqrt(a_i_min)) + 2*np.pi
+                    # if q_i == 1:
+                    #     theta_i_min = np.arcsin(np.sqrt(a_i_min))
+                    #     theta_i_max = np.arcsin(np.sqrt(a_i_max))
+                    # elif q_i == 2:
+                    #     theta_i_min = -np.arcsin(np.sqrt(a_i_max)) + np.pi
+                    #     theta_i_max = -np.arcsin(np.sqrt(a_i_min)) + np.pi
+                    # elif q_i == 3:
+                    #     theta_i_min = np.arcsin(np.sqrt(a_i_min)) + np.pi
+                    #     theta_i_max = np.arcsin(np.sqrt(a_i_max)) + np.pi
+                    # elif q_i == 4:
+                    #     theta_i_min = -np.arcsin(np.sqrt(a_i_max)) + 2*np.pi
+                    #     theta_i_max = -np.arcsin(np.sqrt(a_i_min)) + 2*np.pi
+                    if q_i % 2 == 1:
+                        theta_i_min = np.arcsin(np.sqrt(a_i_min)) 
+                        theta_i_max = np.arcsin(np.sqrt(a_i_max)) 
+                    elif q_i % 2 == 0:
+                        theta_i_min = -np.arcsin(np.sqrt(a_i_max)) + np.pi/2
+                        theta_i_max = -np.arcsin(np.sqrt(a_i_min)) + np.pi/2
                     else:
                         raise ValueError('Invalid quartile computed')
 
@@ -439,8 +449,8 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                     # fixing units of theta_i ci and ensuring it lies in [0, 1]
                     theta_i_min /= (np.pi / 2)
                     theta_i_max /= (np.pi / 2)
-                    theta_i_min -= (q_i - 1)
-                    theta_i_max -= (q_i - 1)
+                    # theta_i_min -= (q_i - 1)
+                    # theta_i_max -= (q_i - 1)
                     
                     # compute theta_u, theta_l of this iteration
                     theta_l = (R_i + theta_i_min) / K
