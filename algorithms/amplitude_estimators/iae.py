@@ -429,7 +429,6 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 
                 theta_intervals.append([theta_l, theta_u])
                 
-                
 
                 # compute a_u_i, a_l_i
                 a_u = np.sin(2 * np.pi * theta_u) ** 2

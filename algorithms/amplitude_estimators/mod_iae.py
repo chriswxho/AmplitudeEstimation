@@ -285,9 +285,9 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
         if 'K_max' not in state: state['K_max'] = []
         state['K_max'].append(K_max)
                 
-        if verbose:
-            print('T:', T)
-            print()
+#         if verbose:
+#             print('T:', T)
+#             print()
 
         # for statevector we can directly return the probability to measure 1
         # note, that no iterations here are necessary
@@ -328,7 +328,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                 
                 k = powers[num_iterations - 1]
                 K = 2*k+1
-                alpha_i = self._alpha / 2 * K / K_max # confidence level for this iteration
+                alpha_i = 2 * self._alpha / 3 * K / K_max # confidence level for this iteration
                 shots_i_max = int(SIN_CONST * np.log(2 / alpha_i))
                 
                 one_counts_total = 0
@@ -339,7 +339,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                     
                     # TODO: give option for no-quantum simulation
                     N = min(round_shots + shots, shots_i_max)
-                    self._quantum_instance._run_config.shots = N - round_shots\
+                    self._quantum_instance._run_config.shots = N - round_shots
                     
                     if verbose:
                         print()
@@ -387,7 +387,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
 
                     # compute theta_i_min, theta_i_max
                     if q_i % 2 == 1:
-                        theta_i_min = np.arcsin(np.sqrt(a_i_min)) 
+                        theta_i_min = np.arcsin(np.sqrt(a_i_min))
                         theta_i_max = np.arcsin(np.sqrt(a_i_max)) 
                     elif q_i % 2 == 0:
                         theta_i_min = -np.arcsin(np.sqrt(a_i_max)) + np.pi/2

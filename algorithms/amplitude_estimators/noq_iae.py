@@ -366,7 +366,7 @@ class NoQuantumIterativeAmplitudeEstimation(AmplitudeEstimator):
                 
                 # run classical replacement for Q^k A|0> circuit
                 
-                theta = 0.5 * np.arccos(1 - 2*k0/N)
+                theta = 0.5 * np.arccos(1 - 2*k0/N) #k0/N
                 a_est = np.sin((2*k+1)*theta)**2
                 
                 one_counts = np.random.binomial(1, a_est, size=shots).sum()
