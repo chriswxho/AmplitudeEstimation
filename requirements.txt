@@ -2,3 +2,4 @@ tqdm
 matplotlib
 numpy
 qiskit==0.31.0
+pyyaml
