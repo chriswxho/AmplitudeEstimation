@@ -1,10 +1,13 @@
 # main settings
-experiments: 100
-amplitudes: 16
-step: 1
+runs: 100
+shots: 100
+a_resolution: 16
+a_step: 1
 alpha: 0.05
-epsilons: [2,3,4,5,6]
+epsilons: [1e-2, 1e-3, 1e-4, 7.5e-5, 5e-5, 2.5e-5, 1e-5, 1e-6]
+# epsilons: [1e-2, 1e-3]
+confint_method: all
 
 # other
-simulator: 'default'
-verbose: false
+noise: 0.05
+simulator: classical

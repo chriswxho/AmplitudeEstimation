@@ -16,7 +16,7 @@ from typing import Optional, Union, List, Tuple, Dict, cast
 import numpy as np
 from scipy.stats import beta
 
-from qiskit import ClassicalRegister, QuantumCircuit
+from qiskit import Aer, ClassicalRegister, QuantumCircuit
 from qiskit.providers import BaseBackend, Backend
 from qiskit.utils import QuantumInstance
 
@@ -90,7 +90,11 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
         super().__init__()
 
         # set quantum instance
-        self.quantum_instance = quantum_instance
+        if quantum_instance == 'classical':
+            self.quantum_instance = None
+        else:
+            quantum_instance = Aer.get_backend(quantum_instance)
+            self.quantum_instance = quantum_instance
 
         # store parameters
         self._epsilon = epsilon_target
@@ -280,8 +284,9 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
             return prob
 
     def estimate(
-        self, 
-        estimation_problem: EstimationProblem, 
+        self, estimation_problem: EstimationProblem,
+        shots: int,
+        ground_truth: float=None,
         state: dict={},
         bugs: set=set(),
         verbose=False
@@ -306,7 +311,7 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 
         # for statevector we can directly return the probability to measure 1
         # note, that no iterations here are necessary
-        if self._quantum_instance.is_statevector:
+        if self._quantum_instance and self._quantum_instance.is_statevector:
             # simulate circuit
             circuit = self.construct_circuit(estimation_problem, k=0, measurement=False)
             ret = self._quantum_instance.execute(circuit)
@@ -330,7 +335,8 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
 
         else:
             num_iterations = 0  # keep track of the number of iterations
-            shots = self._quantum_instance._run_config.shots  # number of shots per iteration            
+            if self._quantum_instance:
+                self._quantum_instance._run_config.shots = shots  # number of shots per iteration            
             
             # do while loop, keep in mind that we scaled theta mod 2pi such that it lies in [0,1]
             while theta_intervals[-1][1] - theta_intervals[-1][0] > self._epsilon / np.pi:
@@ -345,9 +351,6 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 )
 
                 if verbose:
-#                     print('  α_i:', self._alpha)
-#                     print('  Nshots_i:', shots)
-#                     if k != powers[-1]: n_rounds += 1
                     print('  k_i:', k)
                 
                 # store the variables
@@ -355,18 +358,25 @@ class IterativeAmplitudeEstimation(AmplitudeEstimator):
                 ratios.append((2 * powers[-1] + 1) / (2 * powers[-2] + 1))
                 
                 # run measurements for Q^k A|0> circuit
-                circuit = self.construct_circuit(estimation_problem, k, measurement=True)
-                ret = self._quantum_instance.execute(circuit)
+                if self._quantum_instance:
+                    circuit = self.construct_circuit(estimation_problem, k, measurement=True)
+                    ret = self._quantum_instance.execute(circuit)
 
-                # get the counts and store them
-                counts = ret.get_counts(circuit)
+                    # get the counts and store them
+                    counts = ret.get_counts(circuit)
 
-                # calculate the probability of measuring '1', 'prob' is a_i in the paper
-                num_qubits = circuit.num_qubits - circuit.num_ancillas
-                # type: ignore
-                one_counts, prob = self._good_state_probability(
-                    estimation_problem, counts, num_qubits
-                )
+                    # calculate the probability of measuring '1', 'prob' is a_i in the paper
+                    num_qubits = circuit.num_qubits - circuit.num_ancillas
+                    # type: ignore
+                    one_counts, prob = self._good_state_probability(
+                        estimation_problem, counts, num_qubits
+                    )
+                
+                else:
+                    theta = 0.5 * np.arccos(1 - 2*ground_truth) #k0/N
+                    a_est = np.sin((2*k+1)*theta)**2
+                    
+                    one_counts = np.random.binomial(1, a_est, size=shots).sum()
 
                 num_one_shots.append(one_counts)
 

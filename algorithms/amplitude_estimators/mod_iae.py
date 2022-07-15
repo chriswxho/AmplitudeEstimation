@@ -16,7 +16,7 @@ from typing import Optional, Union, List, Tuple, Dict, cast
 import numpy as np
 from scipy.stats import beta
 
-from qiskit import ClassicalRegister, QuantumCircuit
+from qiskit import Aer, ClassicalRegister, QuantumCircuit
 from qiskit.providers import BaseBackend, Backend
 from qiskit.utils import QuantumInstance
 
@@ -90,7 +90,11 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
         super().__init__()
 
         # set quantum instance
-        self.quantum_instance = quantum_instance
+        if quantum_instance == 'classical':
+            self.quantum_instance = None
+        else:
+            quantum_instance = Aer.get_backend(quantum_instance)
+            self.quantum_instance = quantum_instance
 
         # store parameters
         self._epsilon = epsilon_target
@@ -187,7 +191,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
         operator.
 
         Args:
-            estimation_problem: The estimation problem for which to construct the QAE circuit.
+            estimation_problem: The estimation problem for which to construct the QAE  circuit.
             k: The power of the Q operator.
             measurement: Boolean flag to indicate if measurements should be included in the
                 circuits.
@@ -264,7 +268,9 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
             return prob
 
     def estimate(
-        self, estimation_problem: EstimationProblem, 
+        self, estimation_problem: EstimationProblem,
+        shots: int,
+        ground_truth: float=None, 
         min_ratio: float=2.0, 
         state: dict={},
         nmax_only=False,
@@ -291,7 +297,7 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
 
         # for statevector we can directly return the probability to measure 1
         # note, that no iterations here are necessary
-        if self._quantum_instance.is_statevector:
+        if self._quantum_instance and self._quantum_instance.is_statevector:
             # simulate circuit
             circuit = self.construct_circuit(estimation_problem, k=0, measurement=False)
             ret = self._quantum_instance.execute(circuit)
@@ -315,7 +321,6 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
 
         else:
             num_iterations = 0  # keep track of the number of iterations
-            shots = self._quantum_instance._run_config.shots
             
             # constant for N_i^max
             SIN_CONST = 2 / np.square(np.sin(np.pi / 21)) / np.square(np.sin(8 * np.pi / 21))
@@ -337,37 +342,47 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                 
                 while powers[num_iterations - 1] == k:
                     
-                    # TODO: give option for no-quantum simulation
                     N = min(round_shots + shots, shots_i_max)
-                    self._quantum_instance._run_config.shots = N - round_shots
+
+                    shots = N - round_shots
+                    if self._quantum_instance:
+                        self._quantum_instance._run_config.shots = N - round_shots
                     
+                    round_shots = N
+
                     if verbose:
                         print()
                         print('shots_i_max:', shots_i_max)
                         print('N:', N)
-                        print('N - round_shots:', N - round_shots)
-                    round_shots = N
+                        print('N - round_shots:', shots)
                 
-                    ## run measurements for Q^k A|0> circuit
-                    circuit = self.construct_circuit(estimation_problem, k, measurement=True)
-                    ret = self._quantum_instance.execute(circuit)
+                    ## run measurements for Q^k A|0> 
+                    if self._quantum_instance:
+                        circuit = self.construct_circuit(estimation_problem, k, measurement=True)
+                        ret = self._quantum_instance.execute(circuit)
 
-                    # get the counts and store them
-                    counts = ret.get_counts(circuit) # TODO: is this sum of 1s measured across all shots?
+                        # get the counts and store them
+                        counts = ret.get_counts(circuit) # TODO: is this sum of 1s measured across all shots?
 
-                    # calculate the probability of measuring '1', 'prob' is a_i in the paper
-                    num_qubits = circuit.num_qubits - circuit.num_ancillas
-                    # type: ignore
-                    one_counts, _ = self._good_state_probability(
-                        estimation_problem, counts, num_qubits
-                    )
+                        # calculate the probability of measuring '1', 'prob' is a_i in the paper
+                        num_qubits = circuit.num_qubits - circuit.num_ancillas
+                        # type: ignore
+                        one_counts, _ = self._good_state_probability(
+                            estimation_problem, counts, num_qubits
+                        )
+                    
+                    else:
+                        theta = 0.5 * np.arccos(1 - 2*ground_truth) #k0/N
+                        a_est = np.sin((2*k+1)*theta)**2
+                        
+                        one_counts = np.random.binomial(1, a_est, size=shots).sum()
                     
                     
                     one_counts_total += one_counts
                     prob = one_counts_total / N
+
                     if verbose:
                         print('one_counts:', one_counts)
-                        print('prob from _good_state_prob:', _)
                         print('prob:', prob)
                     
                     ##
@@ -443,8 +458,6 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
 
                 if verbose:
                     print('  k_i:', k)
-                
-                
 
                 # track number of Q-oracle calls
                 num_oracle_queries += N * K
