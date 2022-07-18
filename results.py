@@ -23,6 +23,7 @@ from qiskit.algorithms import IterativeAmplitudeEstimation as BaseIterativeAmpli
 from algorithms import IterativeAmplitudeEstimation, ModifiedIterativeAmplitudeEstimation
 from algorithms import NoQuantumIterativeAmplitudeEstimation
 from operators import *
+from plots import make_plots
 
 
 with open('./config.yaml') as f:
@@ -125,18 +126,18 @@ def process_state(state, verbose=False):
     queries = state['n_queries']
     removed = False
 
-    if 0 in round_shots:
-        shots_at_k0 = round_shots.pop(0)
-        removed = True
-    if 0 in queries:
-        queries_at_k0 = queries.pop(0)
+    # if 0 in round_shots:
+    #     shots_at_k0 = round_shots.pop(0)
+    #     removed = True
+    # if 0 in queries:
+    #     queries_at_k0 = queries.pop(0)
 
     k_i = [k for k in round_shots]
     queries_i = [queries[k] for k in k_i]
     shots_i = ([shots_at_k0] if removed else []) + [round_shots[k] for k in k_i]
 
-    if removed:
-        k_i.insert(0, 0.1)
+    # if removed:
+    #     k_i.insert(0, 0.1)
 
     return shots_i, queries_i, k_i
 
@@ -162,6 +163,7 @@ def experiment(alg: str, shots: int, M: int, N: int, alpha: float,
     marked = sample(range(N), M)
     problem = make_problem(n, marked)
     ae_results = []
+    successes = []
 
     for _ in range(runs):        
     
@@ -169,7 +171,10 @@ def experiment(alg: str, shots: int, M: int, N: int, alpha: float,
         state = defaultdict(dict)
         scaling = 1 # figure out what to do here
 
-        if noise > 0:
+        if noise > 0 and simulator == 'classical':
+            noisy_M = np.random.normal(M, 0.05)
+            noisy_M = min(max(noisy_M, 0), N)
+        else:
             N = max(128, N * scaling) # replace with the correct formula
             n = int(np.log2(N))
             sampled_noise = np.random.uniform(-noise if M > N else 0, noise if M < N else 0)
@@ -191,6 +196,7 @@ def experiment(alg: str, shots: int, M: int, N: int, alpha: float,
                                 verbose=verbose)
         
         ae_results.append(ae_result)
+        successes.append(ae_result.confidence_interval_processed[0] <= noisy_M/N if noise > 0 else M/N <= ae_result.confidence_interval_processed[1])
 
         if verbose: print()
 
@@ -209,12 +215,13 @@ def experiment(alg: str, shots: int, M: int, N: int, alpha: float,
     half_ci_widths = np.array([(res.confidence_interval_processed[1] - res.confidence_interval_processed[0]) / 2 for res in ae_results])
     queries = np.array([res.num_oracle_queries for res in ae_results])
     estimations = np.array([res.estimation for res in ae_results])
+    successes = np.array(successes)
 
     results_csv = os.path.join(results_path, f'{M/N}_{confint_method}_{alg}_results.csv')
 
     with open(results_csv, 'a', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow([epsilon] + queries.tolist())
+        writer.writerow([epsilon, 1-successes.mean()] + queries.tolist())
     
     if verbose:
         print(f'Results using algorithm \'{alg}\', amplitude {M}/{N} = {M/N}', end='')
@@ -237,4 +244,10 @@ if __name__ == '__main__':
         
     for alg, M, epsilon, method in tqdm(experiment_combos):
         experiment(alg, shots, M, N, alpha, epsilon, method, noise, runs, simulator)
+
+    print('Generating plots...')
+    if plots:
+        make_plots(results_path)
+
+    print('Done')
         
