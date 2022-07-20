@@ -116,7 +116,7 @@ def make_plots(experiment_dir: str, dest_dir=None):
 
     plt.figure(figsize=(15,7))
     plt.xscale('log')
-    plt.yscale('log')
+    # plt.yscale('log')
 
     epsilons = sorted(df['epsilon'].unique(), reverse=True)
 

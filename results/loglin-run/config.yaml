@@ -1,0 +1,23 @@
+a_resolution: 16
+a_step: 1
+alpha: 0.05
+compare: true
+confint_method: all
+epsilons:
+- 1e-4
+- 7.5e-05
+- 5e-5
+- 2.5e-05
+- 1e-5
+- 7.5e-06
+- 5e-6
+- 2.5e-06
+- 1e-6
+experiment_name: 2022-07-20T025839Z_modified-iqae
+noise: 0.05
+plots: true
+results_path: ./results/2022-07-20T025839Z_modified-iqae
+runs: 10000
+shots: 100
+simulator: classical
+verbose: false
